@@ -4,39 +4,58 @@
 #include <cstdio>
 #include <sys/time.h>
 #include <cstdlib>
-#include <omp.h>
+#include <pthread.h>
 
 using namespace std;
 
 int n1, m1, n2, m2;
 int **one_matrix,
 	**two_matrix;
+int **result;
 
+void *parallel_multiply(void *argc){
+	int thread_count = ((int *)argc)[0];
+	int thread_rank = ((int *) argc)[1];
 
-int **mul_matrix(bool method, int thread_count) {
+	// Кол-во действий каждого потока
+	int point_per_proc = n1 / thread_count;
+	int lb = thread_rank * point_per_proc;
+	int ub = (thread_rank == thread_count - 1) ? (n1 - 1) : (lb + point_per_proc - 1);
+
+	for (int i = lb; i <= ub; i++) {
+        for (int j = 0; j < m2; j++) {
+            result[i][j] = 0;
+            for (int k = 0; k < m1; k++) {
+                result[i][j] += (one_matrix[i][k] * two_matrix[k][j]);
+            }
+            printf("\n");
+        }
+    }
+}
+
+// method = 0 - обычное умножение, 1 - параллельное
+int **mul_matrix(int thread_count, bool method) {
     if(m1 != n2) {
         cout << "Error! m1 != n2" << endl;
         return NULL;
     }
 
-    int **result;
     result = new int*[n1];
     for(int i = 0; i < n1; i++) {
         result[i] = new int[m2];
     }
 
-	if(method){	   
-	    omp_set_num_threads(thread_count);
-	    int i, j, k;
-		#pragma omp parallel for shared(one_matrix, two_matrix, result) private(i, j, k)
-	    for (i = 0; i < n1; i++) {
-	        for (j = 0; j < m2; j++) {
-	            result[i][j] = 0;
-	            for (k = 0; k < m1; k++) {
-	                result[i][j] += (one_matrix[i][k] * two_matrix[k][j]);
-	            }
-	        }
+	if(method){
+		pthread_t thread[thread_count];
+	    int ar[2];
+	    ar[0] = thread_count;
+	    for (int i = 0; i < thread_count; i++) {
+	    	ar[1] = i;
+	        pthread_create(&thread[i], NULL, parallel_multiply, ar);
 	    }
+	    for (int i = 0; i < thread_count; i++)
+	        pthread_join(thread[i], NULL);
+	    
  	} else {
  		for (int i = 0; i < n1; i++) {
 	        for (int j = 0; j < m2; j++) {
@@ -47,10 +66,8 @@ int **mul_matrix(bool method, int thread_count) {
 	        }
 	    }
  	}
-
+ 	return result;
  	//for(int i = 0; i < m2; i++) delete [] result[i];
-
-    return result;
 }
 
 double wtime() {
@@ -66,9 +83,9 @@ void fill_matrix(int **matrix, int n, int m){
 		for (int j = 0; j < m; ++j)
 		{
 			matrix[i][j] = j+1;//5 + rand() % 10; 
-			cout << matrix[i][j] << ' '; 
+			//cout << matrix[i][j] << ' '; 
 		}
-		cout << endl;
+		//cout << endl;
 	}
 }
 
@@ -78,7 +95,6 @@ int main(){
 	double time;
 	double time_v[loop_n];
 	int thread_count;
-	int **tmp;
 	cout.precision(10);
 
 	cout << "Matrix demension one (n m):";
@@ -107,7 +123,7 @@ int main(){
 
 		for(int i = 0; i < loop_n; ++i){
 			time = -wtime();
-			mul_matrix(false, thread_count);
+			mul_matrix(thread_count, false);
 			time += wtime();
 			time_v[i] = time;
 			all_time += time;
@@ -123,7 +139,7 @@ int main(){
 	    all_time = 0.0;
 	    for(int i = 0; i < loop_n; ++i){
 			time = -wtime();
-			tmp = mul_matrix(true, thread_count);
+			mul_matrix(thread_count, true);
 			time += wtime();
 			time_v[i] = time;
 			all_time += time;
@@ -136,13 +152,11 @@ int main(){
 	    cout << fixed << "Parallel:\t" << M
 	    	<< fixed << " (" << S << ")" << endl;
 	}
-
-	for (int j = 0; j < m2; j++) {
-        for (int k = 0; k < m1; k++) {
-            cout << tmp[j][k] << ' ';
+	for (int j = 0; j < n1; j++) {
+        for (int k = 0; k < m2; k++) {
+            cout << result[j][k] << ' ';
         }
         cout << endl;
 	}
-
 	return 0;
 }
