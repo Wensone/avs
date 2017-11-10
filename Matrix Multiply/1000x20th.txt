@@ -1,0 +1,16 @@
+Matrix demension: 1000
+Max threads: 20
+Calculation ...
+
+Th. [1] Serial:		10.3864430594 Deviation (1.0763810587)
+Th. [2] Parallel:	4.5865353394 Deviation (0.2762435250)
+Th. [4] Parallel:	1.4956604195 Deviation (0.3263169718)
+Th. [6] Parallel:	1.4773611760 Deviation (0.0470931147)
+Th. [8] Parallel:	1.4087705350 Deviation (0.0219121584)
+Th. [10] Parallel:	1.4139693999 Deviation (0.0746195342)
+Th. [12] Parallel:	1.3576391101 Deviation (0.0130151779)
+Th. [14] Parallel:	1.3626190972 Deviation (0.0695217628)
+Th. [16] Parallel:	1.3557628083 Deviation (0.0138556548)
+Th. [18] Parallel:	1.3560422468 Deviation (0.0155091790)
+Th. [20] Parallel:	1.3437835550 Deviation (0.0072178158)
+

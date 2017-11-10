@@ -66,23 +66,22 @@ double wtime() {
 void fill_matrix(volatile int **matrix, int n, int m){
 	for (int i = 0; i < n; ++i) {
 		for (int j = 0; j < m; ++j) {
-			matrix[i][j] = 2;//5 + rand() % 10;
+			matrix[i][j] = 5 + rand() % 10;
 		}
 	}
 }
 
 int main(){
-	const int loop_n = 1000;
+	const int loop_n = 100;
 	double all_time = 0.0;
 	double time;
 	double time_v[loop_n];
 	int thread_count, max_thread;
 	cout.precision(10);
 
-	cout << "Matrix demension one (n m): ";
-	cin >> n1 >> m1;
-	cout << "Matrix demension two (n m): ";
-	cin >> n2 >> m2;
+	cout << "Matrix demension: ";
+	cin >> n1;
+	n2 = m1 = m2 = n1;
 
     if ((n1 != m2) || (n2 != m1)) {cout << "Incorrect dimension of matrices!" << endl; return 1;}
 
@@ -102,15 +101,11 @@ int main(){
         result[i] = new int [m2];
     }
 
-	cout << "Enter max number of threads: ";
+	cout << "Max threads: ";
 	cin >> max_thread;
 
-	cout << "Calculation ..." << endl;
-
-
-	for(thread_count = 2; thread_count < 11; thread_count += 2){
-		cout << endl << "Number of threads: " << thread_count  << endl;
-
+	cout << "Calculation ...";
+    
     for(int i = 0; i < loop_n; ++i) {
         time = -wtime();
         mul_matrix(0, false);
@@ -123,8 +118,12 @@ int main(){
     for (int i = 0; i < loop_n; ++i)
         D += pow((time_v[i] - M), 2);
     double S = sqrt(D / loop_n);
-    cout << fixed << "Serial:\t\t" << M << " sec."
-         << fixed << " standard deviation (" << S << ")" << endl;
+    cout << endl << endl << fixed << "Th. [1] Serial:\t\t" << M
+         << fixed << " Deviation (" << S << ")" << endl;
+
+	for(thread_count = 2; thread_count <= max_thread; thread_count += 2){
+		cout << "Th. [" << thread_count << "] ";
+
 	    all_time = 0.0;
 	    for(int i = 0; i < loop_n; ++i) {
 			time = -wtime();
@@ -138,12 +137,12 @@ int main(){
 	    for (int i = 0; i < loop_n; ++i)
 	        D += pow((time_v[i] - M), 2);
 	    S = sqrt(D / loop_n);
-        cout << fixed << "Parallel:\t" << M << " sec."
-             << fixed << " standard deviation (" << S << ")" << endl;
+	    cout << fixed << "Parallel:\t" << M
+	         << fixed << " Deviation (" << S << ")" << endl;
 
 	}
     if (n1 <= 10) {
-        cout << "Multiply matrix result: " << endl;
+        cout << endl << "Result: " << endl;
         for (int j = 0; j < n1; j++) {
             for (int k = 0; k < m2; k++) {
                 cout << result[j][k] << ' ';
