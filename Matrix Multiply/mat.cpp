@@ -1,23 +1,22 @@
 #include <cmath>
 #include <iostream>
-#include <fstream>
-#include <cstdio>
 #include <sys/time.h>
-#include <cstdlib>
-#include <pthread.h>
+#include <thread>
+#include <chrono>
+#include <random>
+#include <ctime>
 
 using namespace std;
 
 int n1, m1, n2, m2;
-int **one_matrix,
+volatile int **one_matrix,
 	**two_matrix;
-int **result;
+volatile int **result;
 
-void *parallel_multiply(void *argc){
-	int thread_count = ((int *)argc)[0];
-	int thread_rank = ((int *) argc)[1];
+void *multiply(int count, int rank){
+	int thread_count = count;
+	int thread_rank = rank;
 
-	// Кол-во действий каждого потока
 	int point_per_proc = n1 / thread_count;
 	int lb = thread_rank * point_per_proc;
 	int ub = (thread_rank == thread_count - 1) ? (n1 - 1) : (lb + point_per_proc - 1);
@@ -28,33 +27,22 @@ void *parallel_multiply(void *argc){
             for (int k = 0; k < m1; k++) {
                 result[i][j] += (one_matrix[i][k] * two_matrix[k][j]);
             }
-            printf("\n");
         }
     }
 }
 
-// method = 0 - обычное умножение, 1 - параллельное
-int **mul_matrix(int thread_count, bool method) {
+int mul_matrix(int thread_count, bool method) {
     if(m1 != n2) {
         cout << "Error! m1 != n2" << endl;
-        return NULL;
+        return 1;
     }
-
-    result = new int*[n1];
-    for(int i = 0; i < n1; i++) {
-        result[i] = new int[m2];
-    }
-
 	if(method){
-		pthread_t thread[thread_count];
-	    int ar[2];
-	    ar[0] = thread_count;
+		std::thread thread_t[thread_count];
 	    for (int i = 0; i < thread_count; i++) {
-	    	ar[1] = i;
-	        pthread_create(&thread[i], NULL, parallel_multiply, ar);
+            thread_t[i] = std::thread(multiply, thread_count, i);
 	    }
 	    for (int i = 0; i < thread_count; i++)
-	        pthread_join(thread[i], NULL);
+	        thread_t[i].join();
 	    
  	} else {
  		for (int i = 0; i < n1; i++) {
@@ -66,78 +54,79 @@ int **mul_matrix(int thread_count, bool method) {
 	        }
 	    }
  	}
- 	return result;
- 	//for(int i = 0; i < m2; i++) delete [] result[i];
+ 	return 0;
 }
 
 double wtime() {
-    struct timeval t;
+    struct timeval t = {};
     gettimeofday(&t, NULL);
     return (double) t.tv_sec + (double) t.tv_usec * 1E-6;
 }
 
-void fill_matrix(int **matrix, int n, int m){
-	srand(time(0));
-	for (int i = 0; i < n; ++i)
-	{
-		for (int j = 0; j < m; ++j)
-		{
-			matrix[i][j] = j+1;//5 + rand() % 10; 
-			//cout << matrix[i][j] << ' '; 
+void fill_matrix(volatile int **matrix, int n, int m){
+	for (int i = 0; i < n; ++i) {
+		for (int j = 0; j < m; ++j) {
+			matrix[i][j] = 2;//5 + rand() % 10;
 		}
-		//cout << endl;
 	}
 }
 
 int main(){
-	const int loop_n = 1;
-	double all_time;
+	const int loop_n = 1000;
+	double all_time = 0.0;
 	double time;
 	double time_v[loop_n];
-	int thread_count;
+	int thread_count, max_thread;
 	cout.precision(10);
 
-	cout << "Matrix demension one (n m):";
+	cout << "Matrix demension one (n m): ";
 	cin >> n1 >> m1;
-	cout << "Matrix demension two (n m):";
+	cout << "Matrix demension two (n m): ";
 	cin >> n2 >> m2;
-	
-	one_matrix = new int*[n1];
-	for (int j = 0; j < n1; ++j)
-		one_matrix[j] = new int[m1]; 
 
-	two_matrix = new int*[n2];
+    if ((n1 != m2) || (n2 != m1)) {cout << "Incorrect dimension of matrices!" << endl; return 1;}
+
+	one_matrix = new volatile int*[n1];
+	for (int j = 0; j < n1; ++j)
+		one_matrix[j] = new volatile int[m1];
+
+	two_matrix = new volatile int* [n2];
 	for (int j = 0; j < n2; ++j)
-		two_matrix[j] = new int[m2];
+		two_matrix[j] = new volatile int [m2];
 
 	fill_matrix(one_matrix, n1, m1);
 	fill_matrix(two_matrix, n2, m2);
 
-	//cout << "Enter thread count:";
-	//cin >> thread_count;
+	result = new volatile int* [n1];
+    for(int i = 0; i < n1; i++) {
+        result[i] = new int [m2];
+    }
+
+	cout << "Enter max number of threads: ";
+	cin >> max_thread;
 
 	cout << "Calculation ..." << endl;
 
+
 	for(thread_count = 2; thread_count < 11; thread_count += 2){
-		cout << endl << "[ Thread count: " << thread_count << " ]" << endl;
+		cout << endl << "Number of threads: " << thread_count  << endl;
 
-		for(int i = 0; i < loop_n; ++i){
-			time = -wtime();
-			mul_matrix(thread_count, false);
-			time += wtime();
-			time_v[i] = time;
-			all_time += time;
-		}
-		double M = all_time / loop_n;
-	    double D = 0;
-	    for (int i = 0; i < loop_n; ++i)
-	        D += pow((double) (time_v[i] - M), 2);
-	    double S = sqrt(D / loop_n);
-	    cout << fixed << "Default:\t" << M
-	    	<< fixed << " (" << S << ")" << endl;
-
+    for(int i = 0; i < loop_n; ++i) {
+        time = -wtime();
+        mul_matrix(0, false);
+        time += wtime();
+        time_v[i] = time;
+        all_time += time;
+    }
+    double M = all_time / loop_n;
+    double D = 0;
+    for (int i = 0; i < loop_n; ++i)
+        D += pow((time_v[i] - M), 2);
+    double S = sqrt(D / loop_n);
+    cout << fixed << "Serial:\t\t" << M << " sec."
+         << fixed << " standard deviation (" << S << ")" << endl;
 	    all_time = 0.0;
-	    for(int i = 0; i < loop_n; ++i){
+	    for(int i = 0; i < loop_n; ++i) {
 			time = -wtime();
 			mul_matrix(thread_count, true);
 			time += wtime();
@@ -147,16 +136,23 @@ int main(){
 		M = all_time / loop_n;
 	    D = 0;
 	    for (int i = 0; i < loop_n; ++i)
-	        D += pow((double) (time_v[i] - M), 2);
+	        D += pow((time_v[i] - M), 2);
 	    S = sqrt(D / loop_n);
-	    cout << fixed << "Parallel:\t" << M
-	    	<< fixed << " (" << S << ")" << endl;
+        cout << fixed << "Parallel:\t" << M << " sec."
+             << fixed << " standard deviation (" << S << ")" << endl;
+
 	}
-	for (int j = 0; j < n1; j++) {
-        for (int k = 0; k < m2; k++) {
-            cout << result[j][k] << ' ';
+    if (n1 <= 10) {
+        cout << "Multiply matrix result: " << endl;
+        for (int j = 0; j < n1; j++) {
+            for (int k = 0; k < m2; k++) {
+                cout << result[j][k] << ' ';
+            }
+            cout << endl;
         }
-        cout << endl;
-	}
+    }
+
+	for(int i = 0; i < m2; i++) delete [] result[i];
+
 	return 0;
 }
