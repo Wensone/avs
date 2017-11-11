@@ -31,29 +31,13 @@ void *multiply(int count, int rank){
     }
 }
 
-int mul_matrix(int thread_count, bool method) {
-    if(m1 != n2) {
-        cout << "Error! m1 != n2" << endl;
-        return 1;
-    }
-	if(method){
-		std::thread thread_t[thread_count];
-	    for (int i = 0; i < thread_count; i++) {
-            thread_t[i] = std::thread(multiply, thread_count, i);
-	    }
-	    for (int i = 0; i < thread_count; i++)
-	        thread_t[i].join();
-	    
- 	} else {
- 		for (int i = 0; i < n1; i++) {
-	        for (int j = 0; j < m2; j++) {
-	            result[i][j] = 0;
-	            for (int k = 0; k < m1; k++) {
-	                result[i][j] += (one_matrix[i][k] * two_matrix[k][j]);
-	            }
-	        }
-	    }
- 	}
+int mul_matrix(int thread_count) {
+	std::thread thread_t[thread_count];
+    for (int i = 0; i < thread_count; i++)
+        thread_t[i] = std::thread(multiply, thread_count, i);
+    for (int i = 0; i < thread_count; i++)
+        thread_t[i].join();
+
  	return 0;
 }
 
@@ -72,11 +56,14 @@ void fill_matrix(volatile int **matrix, int n, int m){
 }
 
 int main(){
-	const int loop_n = 100;
+	const int loop_n = 1;
 	double all_time = 0.0;
 	double time;
 	double time_v[loop_n];
 	int thread_count, max_thread;
+	double speed_kf;
+
+
 	cout.precision(10);
 
 	cout << "Matrix demension: ";
@@ -104,42 +91,30 @@ int main(){
 	cout << "Max threads: ";
 	cin >> max_thread;
 
-	cout << "Calculation ...";
-    
-    for(int i = 0; i < loop_n; ++i) {
-        time = -wtime();
-        mul_matrix(0, false);
-        time += wtime();
-        time_v[i] = time;
-        all_time += time;
-    }
-    double M = all_time / loop_n;
-    double D = 0;
-    for (int i = 0; i < loop_n; ++i)
-        D += pow((time_v[i] - M), 2);
-    double S = sqrt(D / loop_n);
-    cout << endl << endl << fixed << "Th. [1] Serial:\t\t" << M
-         << fixed << " Deviation (" << S << ")" << endl;
+	cout << "Calculation ..." << endl << endl;
 
-	for(thread_count = 2; thread_count <= max_thread; thread_count += 2){
+	for(thread_count = 1; thread_count <= max_thread; thread_count *= 2){
 		cout << "Th. [" << thread_count << "] ";
 
 	    all_time = 0.0;
 	    for(int i = 0; i < loop_n; ++i) {
 			time = -wtime();
-			mul_matrix(thread_count, true);
+			mul_matrix(thread_count);
 			time += wtime();
 			time_v[i] = time;
 			all_time += time;
 		}
-		M = all_time / loop_n;
-	    D = 0;
+		double M = all_time / loop_n;
+	    double D = 0;
 	    for (int i = 0; i < loop_n; ++i)
 	        D += pow((time_v[i] - M), 2);
-	    S = sqrt(D / loop_n);
-	    cout << fixed << "Parallel:\t" << M
-	         << fixed << " Deviation (" << S << ")" << endl;
-
+	    double S = sqrt(D / loop_n);
+	    
+	    cout << fixed << "Time:\t" << M
+	    	 << " Speed up. " << ((thread_count == 1) ? 0 : (speed_kf / M))
+	         << " Deviation (" << S << ")" << endl;
+	    
+	    if(thread_count == 1) speed_kf = M;
 	}
     if (n1 <= 10) {
         cout << endl << "Result: " << endl;
